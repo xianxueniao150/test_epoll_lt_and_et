@@ -1,19 +1,19 @@
-#include <stdlib.h>
+#include <arpa/inet.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
-#include <netinet/tcp.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <string.h>
 #include <unistd.h>
 
-static int do_listen(const char* host, int port) {
+static int do_listen(const char *host, int port) {
     struct addrinfo ai_hints;
-    struct addrinfo* ai_list = NULL;
+    struct addrinfo *ai_list = NULL;
     char portstr[16];
     sprintf(portstr, "%d", port);
     memset(&ai_list, 0, sizeof(ai_hints));
@@ -32,7 +32,7 @@ static int do_listen(const char* host, int port) {
         return -1;
     }
 
-    status = bind(fd, (struct sockaddr*)ai_list->ai_addr, ai_list->ai_addrlen);
+    status = bind(fd, (struct sockaddr *)ai_list->ai_addr, ai_list->ai_addrlen);
     if (status != 0) {
         close(fd);
         freeaddrinfo(ai_list);
@@ -45,7 +45,7 @@ static int do_listen(const char* host, int port) {
     return fd;
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     if (argc < 2) {
         printf("please input mode, lt or et\n");
         return -1;
@@ -54,15 +54,12 @@ int main(int argc, char** argv) {
     int ep_event = 0;
     if (strcmp(argv[1], "et") == 0) {
         ep_event = EPOLLET;
-    }
-    else if (strcmp(argv[1], "lt") == 0) {
+    } else if (strcmp(argv[1], "lt") == 0) {
         ep_event = 0;
-    }
-    else {
+    } else {
         printf("unknow mode %s please input lt or et\n", argv[1]);
         return -1;
     }
-
 
     int epfd = epoll_create(1024);
     if (epfd == -1) {
@@ -70,7 +67,7 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    int listen_fd = do_listen("127.0.0.1", 8001);
+    int listen_fd = do_listen("127.0.0.1", 8002);
     if (listen_fd < 0) {
         printf("do listen fail");
         return -1;
@@ -81,7 +78,7 @@ int main(int argc, char** argv) {
     ee.data.fd = listen_fd;
     epoll_ctl(epfd, EPOLL_CTL_ADD, listen_fd, &ee);
 
-    for(;;) {
+    for (;;) {
         printf("before epoll epoll_wait\n");
         struct epoll_event ev[16];
         int n = epoll_wait(epfd, ev, 16, -1);
@@ -92,8 +89,8 @@ int main(int argc, char** argv) {
 
         printf("after epoll_wait event n:%d\n", n);
 
-        for (int i = 0; i < n; i ++) {
-            struct epoll_event* e = &ev[i];
+        for (int i = 0; i < n; i++) {
+            struct epoll_event *e = &ev[i];
             if (e->data.fd == listen_fd) {
                 struct sockaddr s;
                 socklen_t len = sizeof(s);
@@ -107,8 +104,7 @@ int main(int argc, char** argv) {
                 ee.data.fd = client_fd;
                 epoll_ctl(epfd, EPOLL_CTL_ADD, client_fd, &ee);
                 printf("accpet new connection fd:%d\n", client_fd);
-            }
-            else {
+            } else {
                 int client_fd = e->data.fd;
                 int flag = e->events;
                 int r = (flag & EPOLLIN) != 0;
@@ -118,18 +114,19 @@ int main(int argc, char** argv) {
                     int n = read(client_fd, buffer, 2);
                     printf("read number %d\n", n);
                     if (n < 0) {
-                        switch(errno) {
-                            case EINTR: break;
-                            case EWOULDBLOCK: break;
-                            default: break;
+                        switch (errno) {
+                        case EINTR:
+                            break;
+                        case EWOULDBLOCK:
+                            break;
+                        default:
+                            break;
                         }
-                    }
-                    else if (n == 0) {
+                    } else if (n == 0) {
                         epoll_ctl(epfd, EPOLL_CTL_DEL, client_fd, NULL);
                         close(client_fd);
                         break;
-                    }
-                    else {
+                    } else {
                         printf("----%c%c\n", buffer[0], buffer[1]);
                     }
                 }
